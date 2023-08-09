@@ -1296,6 +1296,11 @@ class Module(vtypes.VeriloggenNode):
 class StubModule(vtypes.VeriloggenNode):
     """ Verilog Module class """
 
+    def __eq__(self, other):
+        if isinstance(other, StubModule):
+            return (self.name == other.name and self.code == other.code)
+        return False
+
     def __init__(self, name=None, code=''):
         vtypes.VeriloggenNode.__init__(self)
         self.name = name if name is not None else self.__class__.__name__

@@ -3630,6 +3630,62 @@ class Counter(_Accumulator):
         seq(count(next_count_value), cond=enable_cond)
 
 
+class RandXorshift(_Accumulator):
+
+    def __init__(self, reg_initval=0x12345678, dependency=None, enable=None, width=32):
+
+        right = 0
+        size = None
+        interval = None
+        initval = None
+        offset = None
+        reset = None
+        signed = False
+
+        _Accumulator.__init__(self, right, size, interval, initval, offset,
+                              dependency, enable, reset, reg_initval, width, signed)
+        self.graph_label = 'RandXorshift'
+
+    def _implement(self, m, seq, svalid=None, senable=None):
+        if self.latency != 1:
+            raise ValueError("Latency mismatch '%d' vs '%s'" %
+                             (self.latency, 1))
+
+        width = self.get_width()
+        signed = self.get_signed()
+
+        reg_initval_data = self.reg_initval.sig_data
+
+        data = m.Reg(self.name('data'), width,
+                     initval=reg_initval_data, signed=signed)
+
+        randval = m.Reg(self.name('randval'), width,
+                      initval=reg_initval_data, signed=signed)
+
+        self.sig_data = data
+
+        enabledata = self.enable.sig_data if self.enable is not None else None
+        
+        if width == 32:
+            next_value = randval ^ (randval << 13)
+            next_value = next_value ^ (next_value >> 17)
+            next_value = next_value ^ (next_value << 5)
+        elif width == 64:
+            next_value = randval ^ (randval << 13)
+            next_value = next_value ^ (next_value >> 7)
+            next_value = next_value ^ (next_value << 17)
+        else:
+            raise ValueError("Invalid width value '%d', please specify 32 or 64" % width)
+
+        enable_cond = _and_vars(svalid, senable)
+
+        if self.enable is not None:
+            enable_cond = _and_vars(enable_cond, enabledata)
+
+        seq(data(randval), cond=enable_cond)
+        seq(randval(next_value), cond=enable_cond)
+
+
 class Pulse(_Accumulator):
     ops = ()
 

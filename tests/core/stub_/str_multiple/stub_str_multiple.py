@@ -16,13 +16,16 @@ def mkTop():
     width = m.Parameter('WIDTH', 8)
     clk = m.Input('CLK')
     rst = m.Input('RST')
-    led = m.Output('LED', width)
+    led0 = m.Output('LED0', width)
+    led1 = m.Output('LED1', width)
 
-    params = (width,)
-    ports = (clk, rst, led)
+    params0 = (width,)
+    ports0 = (clk, rst, led0)
+    m.Instance('blinkled', 'inst_blinkled0', params0, ports0)
 
-    # StubModule is automatically created inside
-    m.Instance('blinkled', 'inst_blinkled', params, ports)
+    params1 = (width,)
+    ports1 = (clk, rst, led1)
+    m.Instance('blinkled', 'inst_blinkled1', params0, ports1)
 
     return m
 

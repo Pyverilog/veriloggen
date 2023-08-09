@@ -471,6 +471,25 @@ class CompileVisitor(ast.NodeVisitor):
                 formatstring_list.append(form)
                 formatstring_list.append(" ")
 
+            elif (sys.version_info >= (3, 6) and
+                  isinstance(arg, ast.JoinedStr)):
+                # Formatted String Literals (f-strings) in print statement
+                values, form = self._print_f_strings(arg)
+
+                for value in values:
+                    if isinstance(value, fxd._FixedBase):
+                        if value.point >= 0:
+                            argvalues.append(vtypes.Div(vtypes.SystemTask('itor', value),
+                                                        1.0 * (2 ** value.point)))
+                        else:
+                            argvalues.append(vtypes.Times(value, 2 ** -value.point))
+
+                    else:
+                        argvalues.append(value)
+
+                formatstring_list.append(form)
+                formatstring_list.append(" ")
+
             elif isinstance(arg, ast.Tuple):
                 for e in arg.elts:
                     value = self.visit(e)
@@ -533,6 +552,27 @@ class CompileVisitor(ast.NodeVisitor):
         else:
             values.append(self.visit(arg.right))
         form = arg.left.s
+        return values, form
+
+    def _print_f_strings(self, arg):
+        values = []
+        form = ''
+        for val in arg.values:
+            if isinstance(val, ast.Constant):
+                form += val.value
+            elif isinstance(val, ast.FormattedValue):
+                values.append(self.visit(val.value))
+                if val.format_spec:
+                    # no guarantee if a simulator accepts it or not
+                    if len(val.format_spec.values) == 1:
+                        # e.g. f"{reg0:x} {reg1:0b}"
+                        form += '%' + val.format_spec.values[0].value
+                    else:
+                        # do not allow nested f-strings
+                        raise SyntaxError('Illegal format_spec of f-strings')
+                else:
+                    # interpret as integer by default
+                    form += '%d'
         return values, form
 
     def _call_Name_int(self, node):
