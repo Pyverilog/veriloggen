@@ -323,6 +323,7 @@ class _Numeric(VeriloggenNode):
 
     def __init__(self):
         VeriloggenNode.__init__(self)
+        self._value = None
 
     def __hash__(self):
         return hash((id(self), self.object_id))
@@ -532,6 +533,14 @@ class _Numeric(VeriloggenNode):
             raise TypeError("Non int length.")
         return ret
 
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, value):
+        self._value = value
+
 
 class _Variable(_Numeric):
 
@@ -544,7 +553,7 @@ class _Variable(_Numeric):
             dims = tuple([dims])
         self.dims = dims
         self.signed = signed
-        self.value = value
+        self._value = value
         self.initval = initval
 
         self.raw_width = raw_width  # (MSB, LSB)
@@ -781,7 +790,7 @@ class _Constant(_Numeric):
 
     def __init__(self, value, width=None, base=None):
         _Numeric.__init__(self)
-        self.value = value
+        self._value = value
         self.width = width
         self.base = base
         self._type_check_value(value)
@@ -802,6 +811,14 @@ class _Constant(_Numeric):
             return 32
         return self.width
 
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, value):
+        raise ValueError('setter is not supported.')
+
 
 class Int(_Constant):
 
@@ -814,17 +831,17 @@ class Int(_Constant):
             if base is None:
                 raise ValueError(
                     'base is required when is_raw_value is enabled.')
-            self.value = value
+            self._value = value
             self.width = width
             self.base = base
             self.signed = signed
         elif isinstance(value, int):
-            self.value = value
+            self._value = value
             self.width = width
             self.base = base
             self.signed = signed if value >= 0 else value < 0
         else:
-            self.value, self.base = str_to_value(value)
+            self._value, self.base = str_to_value(value)
             if base is not None:
                 self.base = base
             if not isinstance(self.value, int):
@@ -934,7 +951,7 @@ class Float(_Constant):
 
     def __init__(self, value):
         _Constant.__init__(self, value, None, None)
-        self.value = value
+        self._value = value
         self.width = 32
 
     def _type_check_value(self, value):
@@ -953,7 +970,7 @@ class Str(_Constant):
 
     def __init__(self, value):
         _Constant.__init__(self, value, None, None)
-        self.value = value
+        self._value = value
 
     def _type_check_value(self, value):
         if not isinstance(value, str):
@@ -2286,7 +2303,15 @@ class Delay(VeriloggenNode):
 
     def __init__(self, value):
         VeriloggenNode.__init__(self)
-        self.value = value
+        self._value = value
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, value):
+        raise ValueError('setter is not supported.')
 
 
 class SingleStatement(VeriloggenNode):
