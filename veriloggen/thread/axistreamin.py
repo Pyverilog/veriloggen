@@ -18,9 +18,11 @@ from .fifo import FIFO
 class AXIStreamIn(axi.AxiStreamIn, _MutexFunction):
     """ AXI Stream Interface for Input """
 
-    __intrinsics__ = ('read',
-                      'dma_read', 'dma_read_async',
-                      'dma_wait_read')
+    __intrinsics__ = {'read': 'read',
+                      'dma_read': 'dma_read',
+                      'dma_read_async': 'dma_read_async',
+                      'dma_wait_read': 'dma_wait_read',
+                      } | _MutexFunction.__intrinsics__
 
     def __init__(self, m, name, clk, rst, datawidth=32, addrwidth=32,
                  with_last=True, with_strb=False,
@@ -509,10 +511,6 @@ class AXIStreamIn(axi.AxiStreamIn, _MutexFunction):
 
 class AXIStreamInFifo(AXIStreamIn):
     """ AXI Stream Interface to FIFO for Input """
-
-    __intrinsics__ = ('read',
-                      'dma_read', 'dma_read_async',
-                      'dma_wait_read')
 
     def __init__(self, m, name, clk, rst, datawidth=32, addrwidth=32,
                  with_last=True, with_strb=False,

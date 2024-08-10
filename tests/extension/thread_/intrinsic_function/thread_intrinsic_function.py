@@ -46,8 +46,9 @@ def mkLed():
 
     th = vthread.Thread(m, 'th_blink', clk, rst, blink)
 
-    # add intrinsics
-    th.add_intrinsics(send, wait)
+    # add intrinsic functions
+    th.add_intrinsic(send, 'send')
+    th.add_intrinsic(wait, 'wait')
 
     fsm = th.start(10)
 

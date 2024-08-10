@@ -4,6 +4,7 @@ from __future__ import print_function
 import functools
 import math
 import collections
+import numpy as np
 
 import veriloggen.core.vtypes as vtypes
 import veriloggen.types.fixed as fxd
@@ -17,7 +18,9 @@ from .ttypes import _MutexFunction
 
 
 class RAM(_MutexFunction):
-    __intrinsics__ = ('read', 'write') + _MutexFunction.__intrinsics__
+    __intrinsics__ = {'read': '_intrinsic_read',
+                      'write': '_intrinsic_write'
+                      } | _MutexFunction.__intrinsics__
 
     def __init__(self, m, name, clk, rst,
                  datawidth=32, addrwidth=10, numports=1,
@@ -87,6 +90,12 @@ class RAM(_MutexFunction):
         self.seq = Seq(m, name, clk, rst)
 
         self.mutex = None
+
+        # for execution as SW
+        if isinstance(self.addrwidth, int):
+            self.array = np.zeros([2 ** self.addrwidth])
+        else:
+            self.array = None
 
     def __getitem__(self, index):
         return self.interfaces[index]
@@ -165,7 +174,7 @@ class RAM(_MutexFunction):
         util.add_enable_cond(self.interfaces[port].wenable, enable, vtypes.Int(1, 1))
         util.add_enable_cond(self.interfaces[port].enable, enable, vtypes.Int(1, 1))
 
-    def read(self, fsm, addr, port=0):
+    def _intrinsic_read(self, fsm, addr, port=0):
         """ intrinsic read operation using a shared Seq object """
 
         port = vtypes.to_int(port)
@@ -182,7 +191,10 @@ class RAM(_MutexFunction):
 
         return rdata_reg
 
-    def write(self, fsm, addr, wdata, port=0, cond=None):
+    def read(self, addr, port=0):
+        return self.array[addr]
+
+    def _intrinsic_write(self, fsm, addr, wdata, port=0, cond=None):
         """ intrinsic write operation using a shared Seq object """
 
         port = vtypes.to_int(port)
@@ -196,6 +208,11 @@ class RAM(_MutexFunction):
         fsm.goto_next()
 
         return 0
+
+    def write(self, addr, wdata, port=0, cond=None):
+        if cond is not None:
+            raise NotImplementedError()
+        self.array[addr] = wdata
 
     def read_burst(self, addr, stride, length, blocksize,
                    rready, rquit=False, port=0, cond=None):
@@ -342,19 +359,19 @@ class FixedRAM(RAM):
 
         self.point = point
 
-    def read(self, fsm, addr, port=0, raw=False):
-        raw_value = RAM.read(self, fsm, addr, port)
+    def _intrinsic_read(self, fsm, addr, port=0, raw=False):
+        raw_value = RAM._intrinsic_read(self, fsm, addr, port)
         if raw:
             return raw_value
         return fxd.reinterpret_cast_to_fixed(raw_value, self.point)
 
-    def write(self, fsm, addr, wdata, port=0, cond=None, raw=False):
+    def _intrinsic_write(self, fsm, addr, wdata, port=0, cond=None, raw=False):
         if raw:
             fixed_wdata = wdata
         else:
             fixed_wdata = fxd.write_adjust(wdata, self.point)
 
-        return RAM.write(self, fsm, addr, fixed_wdata, port, cond)
+        return RAM._intrinsic_write(self, fsm, addr, fixed_wdata, port, cond)
 
 
 def extract_rams(rams):
@@ -370,16 +387,11 @@ def extract_rams(rams):
 
 
 class MultibankRAM(RAM):
-    __intrinsics__ = (
-        'read', 'write',
-        'read_bank', 'write_bank',
-        'dma_read_bank', 'dma_read_bank_async',
-        'dma_write_bank', 'dma_write_bank_async',
-        'dma_read_block', 'dma_read_block_async',
-        'dma_write_block', 'dma_write_block_async',
-        'dma_read_packed', 'dma_read_packed_async',
-        'dma_write_packed', 'dma_write_packed_async',
-        'dma_read_bcast', 'dma_read_bcast_async') + _MutexFunction.__intrinsics__
+    __intrinsics__ = {'read': '_intrinsic_read',
+                      'write': '_intrinsic_write',
+                      'read_bank': '_intrinsic_read_bank',
+                      'write_bank': '_intrinsic_write_bank',
+                      } | _MutexFunction.__intrinsics__
 
     def __init__(self, m, name, clk, rst,
                  datawidth=32, addrwidth=10, numports=1, numbanks=2,
@@ -535,7 +547,7 @@ class MultibankRAM(RAM):
 
         return 0
 
-    def read_bank(self, fsm, bank, addr, port=0):
+    def _intrinsic_read_bank(self, fsm, bank, addr, port=0):
         port = vtypes.to_int(port)
         cond = fsm.state == fsm.current
 
@@ -558,7 +570,10 @@ class MultibankRAM(RAM):
 
         return rdata_reg
 
-    def write_bank(self, fsm, bank, addr, wdata, port=0, cond=None):
+    def read_bank(self, bank, addr, port=0):
+        return self.rams[bank].read(addr, port)
+
+    def _intrinsic_write_bank(self, fsm, bank, addr, wdata, port=0, cond=None):
         if cond is None:
             cond = fsm.state == fsm.current
         else:
@@ -571,6 +586,9 @@ class MultibankRAM(RAM):
         fsm.goto_next()
 
         return 0
+
+    def write_bank(self, bank, addr, wdata, port=0, cond=None):
+        return self.rams[bank].write(wdata, port, cond)
 
     def read_burst_block(self, bank_addr, bank_stride, length, blocksize,
                          rready, rquit=False, port=0, cond=None):

@@ -11,7 +11,7 @@ from .ttypes import _MutexFunction
 
 
 class UartTx(Submodule, _MutexFunction):
-    __intrinsics__ = ('send',) + _MutexFunction.__intrinsics__
+    __intrinsics__ = {'send': '_intrinsic_send'} | _MutexFunction.__intrinsics__
 
     def __init__(self, m, name, prefix, clk, rst, txd=None,
                  arg_params=None, arg_ports=None,
@@ -40,7 +40,7 @@ class UartTx(Submodule, _MutexFunction):
 
         self.mutex = None
 
-    def send(self, fsm, value):
+    def _intrinsic_send(self, fsm, value):
         fsm(
             self.tx_din(value),
             self.tx_enable(1)
@@ -52,9 +52,12 @@ class UartTx(Submodule, _MutexFunction):
         fsm.goto_next()
         fsm.If(self.tx_ready).goto_next()
 
+    def send(self, value):
+        raise NotImplementedError("Only the intrinsic method is implemented.")
+
 
 class UartRx(Submodule, _MutexFunction):
-    __intrinsics__ = ('recv',) + _MutexFunction.__intrinsics__
+    __intrinsics__ = {'recv': '_intrinsic_recv'} | _MutexFunction.__intrinsics__
 
     def __init__(self, m, name, prefix, clk, rst, rxd=None,
                  arg_params=None, arg_ports=None,
@@ -80,13 +83,16 @@ class UartRx(Submodule, _MutexFunction):
 
         self.mutex = None
 
-    def recv(self, fsm):
+    def _intrinsic_recv(self, fsm):
         ret = fsm.m.TmpReg(self.rx_dout.width)
         fsm.If(self.rx_valid)(
             ret(self.rx_dout)
         )
         fsm.Then().goto_next()
         return ret
+
+    def recv(self):
+        raise NotImplementedError("Only the intrinsic method is implemented.")
 
 
 def mkUartTx(baudrate=19200, clockfreq=100 * 1000 * 1000):

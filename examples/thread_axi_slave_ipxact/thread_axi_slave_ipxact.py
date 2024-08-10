@@ -49,7 +49,8 @@ def mkLed():
             saxi.write(1, 0)  # unset busy
 
     th = vthread.Thread(m, 'th_blink', clk, rst, blink)
-    th.add_intrinsics(wait)
+    th.add_intrinsic(wait, 'wait')
+
     fsm = th.start(16)
 
     return m

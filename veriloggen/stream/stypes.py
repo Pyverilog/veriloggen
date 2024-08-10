@@ -4421,7 +4421,7 @@ class ToExtern(_SpecialOperator):
 
 
 class FromExtern(_UnaryOperator):
-    __intrinsics__ = ('write')
+    __intrinsics__ = {'write': '_intrinsic_write'}
     latency = 1
 
     def __init__(self, right, width=None, point=None, signed=True, latency=1):
@@ -4458,12 +4458,15 @@ class FromExtern(_UnaryOperator):
         data = fx.FixedReg(m, self.name('data'), width, point, initval=0, signed=signed)
         self.sig_data = data
 
-    def write(self, fsm, value):
+    def _intrinsic_write(self, fsm, value):
         cond = fsm.here
 
         self.seq.If(cond)(
             self.sig_data(value)
         )
+
+    def write(self, value):
+        raise NotImplementedError("only intrinsic method is implemented.")
 
 
 class _LineBufferOut(_UnaryOperator):
@@ -4766,19 +4769,22 @@ class Predicate(_SpecialOperator):
 
 
 class Reg(Predicate):
-    __intrinsics__ = ('write')
+    __intrinsics__ = {'write': '_intrinsic_write'}
 
     def __init__(self, data, when=None):
         Predicate.__init__(self, data, when)
         self.graph_label = 'Reg'
         self.graph_shape = 'box'
 
-    def write(self, fsm, value):
+    def _intrinsic_write(self, fsm, value):
         cond = fsm.here
 
         self.seq.If(cond)(
             self.sig_data(value)
         )
+
+    def write(self, value):
+        raise NotImplementedError("only intrinsic method is implemented.")
 
 
 class ReadRAM(_SpecialOperator):

@@ -3,7 +3,8 @@ from __future__ import print_function
 
 from . import stream
 
-__intrinsics__ = ('copy', 'copy_pattern')
+__intrinsics__ = {'copy': 'copy',
+                  'copy_pattern': 'copy_pattern'}
 
 copy_stream_cache = {}
 copy_pattern_stream_cache = {}

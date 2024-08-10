@@ -31,7 +31,11 @@ def embed_thread(fsm, func, *args, **kwargs):
 
 
 class Thread(vtypes.VeriloggenNode):
-    __intrinsics__ = ('run', 'join', 'done', 'reset', 'ret')
+    __intrinsics__ = {'run': '_intrinsic_run',
+                      'join': '_intrinsic_join',
+                      'done': '_intrinsic_done',
+                      'reset': '_intrinsic_reset',
+                      'ret': '_intrinsic_ret'}
 
     def __init__(self, m, name, clk, rst, targ,
                  datawidth=32, point=16, tid=None, fsm_as_module=False):
@@ -102,7 +106,7 @@ class Thread(vtypes.VeriloggenNode):
 
         return fsm
 
-    def run(self, fsm, *args, **kwargs):
+    def _intrinsic_run(self, fsm, *args, **kwargs):
         """ start as a child thread """
 
         if not self.is_child and self.end_state is not None:
@@ -128,7 +132,11 @@ class Thread(vtypes.VeriloggenNode):
 
         return start_flag
 
-    def join(self, fsm):
+    def run(self, *args, **kwargs):
+        """ start as a child thread """
+        raise NotImplementedError()
+
+    def _intrinsic_join(self, fsm):
         """ wait for the completion """
 
         if self.end_state is None:
@@ -139,7 +147,11 @@ class Thread(vtypes.VeriloggenNode):
 
         return 0
 
-    def done(self, fsm):
+    def join(self):
+        """ wait for the completion """
+        raise NotImplementedError()
+
+    def _intrinsic_done(self, fsm):
         """ check whethe the thread is running """
 
         if self.end_state is None:
@@ -149,7 +161,11 @@ class Thread(vtypes.VeriloggenNode):
 
         return end_flag
 
-    def reset(self, fsm):
+    def done(self):
+        """ check whethe the thread is running """
+        raise NotImplementedError()
+
+    def _intrinsic_reset(self, fsm):
         """ reset the FSM counter to the initial state """
 
         if self.end_state is None:
@@ -169,10 +185,18 @@ class Thread(vtypes.VeriloggenNode):
 
         return 0
 
-    def ret(self, fsm):
+    def reset(self):
+        """ reset the FSM counter to the initial state """
+        raise NotImplementedError()
+
+    def _intrinsic_ret(self, fsm):
         """ return value """
 
         return self.return_value
+
+    def ret(self):
+        """ return value """
+        raise NotImplementedError()
 
     # --------------------------------------------------------------------------
     def add_function(self, func):
@@ -183,32 +207,31 @@ class Thread(vtypes.VeriloggenNode):
         self.function_lib[name] = func
         return func
 
-    def add_intrinsics(self, *funcs):
-        for func in funcs:
-            self.intrinsic(func)
-
     def add_intrinsic_method_prefix(self, obj, prefix):
-        funcs = [method for name, method in inspect.getmembers(obj, inspect.ismethod)
+        funcs = [(name, method) for name, method in inspect.getmembers(obj, inspect.ismethod)
                  if name.startswith(prefix)]
-        self.add_intrinsics(*funcs)
+        for name, func in funcs:
+            self.add_intrinsic(func, name)
 
-    def intrinsic(self, func):
+    def add_intrinsic(self, func, name=None):
         if inspect.isfunction(func):
-            return self._add_intrinsic_function(func)
+            return self._add_intrinsic_function(func, name)
         if inspect.ismethod(func):
-            return self._add_intrinsic_method(func)
+            return self._add_intrinsic_method(func, name)
         raise TypeError("'%s' object is not supported" % str(type(func)))
 
-    def _add_intrinsic_function(self, func):
-        name = func.__name__
+    def _add_intrinsic_function(self, func, name):
+        if name is None:
+            name = func.__name__
         if name in self.intrinsic_functions:
             raise ValueError(
                 'Intrinsic function {} is already defined'.format(name))
         self.intrinsic_functions[name] = func
         return func
 
-    def _add_intrinsic_method(self, func):
-        name = str(func)
+    def _add_intrinsic_method(self, func, name):
+        if name is None:
+            raise ValueError("'name' must not be None.")
         if name in self.intrinsic_methods:
             raise ValueError(
                 'Intrinsic method {} is already defined'.format(name))

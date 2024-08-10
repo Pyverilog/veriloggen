@@ -725,10 +725,6 @@ class CompileVisitor(ast.NodeVisitor):
 
     def _call_Attribute(self, node):
         value = self.visit(node.func.value)
-        method = getattr(value, node.func.attr)
-
-        if not inspect.ismethod(method) and not inspect.isfunction(method):
-            raise TypeError("'%s' object is not callable" % str(type(method)))
 
         # prepare the argument values
         args = []
@@ -738,9 +734,21 @@ class CompileVisitor(ast.NodeVisitor):
         for key in node.keywords:
             kwargs[key.arg] = self.visit(key.value)
 
-        # check intrinsic method
-        name = str(method)
-        if self._is_intrinsic_method(value, method) or name in self.intrinsic_methods:
+        name = node.func.attr
+
+        # intrinsic method
+        if _has_intrinsic_method(value, name):
+            intrinsic_method = _get_intrinsic_method(value, name)
+        elif name in self.intrinsic_methods:
+            intrinsic_method = self.intrinsic_methods[name]
+        else:
+            intrinsic_method = None
+
+        if intrinsic_method is not None:
+            if (not inspect.ismethod(intrinsic_method) and
+                not inspect.isfunction(intrinsic_method)):
+                raise TypeError("'%s' object is not callable" % str(type(intrinsic_method)))
+
             args.insert(0, self.fsm)
 
             # pass the current local scope
@@ -752,7 +760,12 @@ class CompileVisitor(ast.NodeVisitor):
                 for thread in value.threads:
                     thread.start_frame = self.start_frame
 
-            return method(*args, **kwargs)
+            return intrinsic_method(*args, **kwargs)
+
+        # normal method
+        method = getattr(value, name, None)
+        if not inspect.ismethod(method) and not inspect.isfunction(method):
+            raise TypeError("'%s' object is not callable" % str(type(method)))
 
         # stack a new scope frame
         self.pushScope(ftype='call')
@@ -786,10 +799,6 @@ class CompileVisitor(ast.NodeVisitor):
         self.popScope()
 
         return ret
-
-    def _is_intrinsic_method(self, value, method):
-        intrinsics = getattr(value, '__intrinsics__', ())
-        return (method.__name__ in intrinsics)
 
     # ------------------------------------------------------------------
     def visit_Nonlocal(self, node):
@@ -1336,3 +1345,29 @@ class CompileVisitor(ast.NodeVisitor):
 
     def clearReturnVariable(self):
         self.scope.clearReturnVariable()
+
+
+def _has_intrinsic_method(value, name):
+    if not hasattr(value, '__intrinsics__'):
+        return False
+    return name in value.__intrinsics__
+
+
+def _get_intrinsic_method(value, name):
+    """ __intrinsics__ supports tuple, list, and dict """
+
+    if isinstance(value.__intrinsics__, (tuple, list)):
+        # original style using tuple
+        i_name = name
+    elif isinstance(value.__intrinsics__, dict):
+        # method name table using dict
+        i_name = value.__intrinsics__[name]
+    else:
+        raise TypeError(
+            "__intrinsics__ field of {} must be tuple, list, or dict.".format(type(value)))
+
+    intrinsic_method = getattr(value, i_name, None)
+    if intrinsic_method is None:
+        raise ValueError("no such intrinsic method '%s'" % i_name)
+
+    return intrinsic_method

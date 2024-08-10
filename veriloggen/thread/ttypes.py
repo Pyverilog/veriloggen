@@ -10,22 +10,33 @@ import veriloggen.types.util as util
 from veriloggen.seq.seq import Seq
 
 
-__intrinsics__ = ('intrinsic', 'statement', 'subst',
-                  'display', 'write', 'finish', 'signed',
-                  'embedded_code', 'embedded_numeric',
-                  'set_parallel', 'unset_parallel')
+__intrinsics__ = {'intrinsic': 'intrinsic_intrinsic',
+                  'statement': 'intrinsic_statement',
+                  'subst': 'intrinsic_subst',
+                  'display': 'intrinsic_display',
+                  'write': 'intrinsic_write',
+                  'finish': 'intrinsic_finish',
+                  'signed': 'intrinsic_signed',
+                  'embedded_code': 'intrinsic_embedded_code',
+                  'embedded_numeric': 'intrinsic_embedded_numeric',
+                  'set_parallel': 'intrinsic_set_parallel',
+                  'unset_parallel': 'intrinsic_unset_parallel'}
 
 
-def intrinsic(fsm, func, *args, **kwargs):
+def intrinsic_intrinsic(fsm, func, *args, **kwargs):
     """ function call as an intrinsic """
-    func(fsm, *args, **kwargs)
+    return func(fsm, *args, **kwargs)
+
+
+def intrinsic(func, *args, **kwargs):
+    return func(*args, **kwargs)
 
 
 class _verilog_meta(type):
     """ metaclass for verilog operator intrinsics """
 
     __verilog_classes__ = dict(inspect.getmembers(vtypes))
-    __intrinsics__ = tuple(__verilog_classes__.keys())
+    __intrinsics__ = dict([(key, key) for key in __verilog_classes__.keys()])
 
     def __getattr__(self, key):
         if key in self.__verilog_classes__:
@@ -49,7 +60,7 @@ class verilog(_verilog):
 
 
 # for SingleStatement and EmbeddedCode
-def statement(fsm, *values):
+def intrinsic_statement(fsm, *values):
     for value in values:
         fsm(
             value
@@ -57,45 +68,86 @@ def statement(fsm, *values):
     fsm.goto_next()
 
 
-def subst(fsm, dst, src):
-    statement(fsm, vtypes.Subst(dst, src))
+def statement(*values):
+    for value in values:
+        eval(value)
 
 
-def display(fsm, *args):
-    statement(fsm, vtypes.Display(*args))
+def intrinsic_subst(fsm, dst, src):
+    intrinsic_statement(fsm, vtypes.Subst(dst, src))
 
 
-def write(fsm, *args):
-    statement(fsm, vtypes.Write(*args))
+def subst(dst, src):
+    raise NotImplementedError("Only the intrinsic function 'intrinsic_subst' is supported.")
 
 
-def finish(fsm):
-    statement(fsm, vtypes.Finish())
+def intrinsic_display(fsm, *args):
+    intrinsic_statement(fsm, vtypes.Display(*args))
 
 
-def signed(fsm, value):
+def display(*args):
+    print(*args)
+
+
+def intrinsic_write(fsm, *args):
+    intrinsic_statement(fsm, vtypes.Write(*args))
+
+
+def write(*args):
+    raise NotImplementedError("Only the intrinsic function 'intrinsic_write' is supported.")
+
+
+def intrinsic_finish(fsm):
+    intrinsic_statement(fsm, vtypes.Finish())
+
+
+def finish():
+    exit()
+
+
+def intrinsic_signed(fsm, value):
     return vtypes.Signed(value)
 
 
-def embedded_code(fsm, *codes):
+def signed(value):
+    return value
+
+
+def intrinsic_embedded_code(fsm, *codes):
     codes = [code.value if isinstance(code, vtypes.Str) else code
              for code in codes]
     code = '\n'.join(codes)
-    statement(fsm, vtypes.EmbeddedCode(code))
+    intrinsic_statement(fsm, vtypes.EmbeddedCode(code))
 
 
-def embedded_numeric(fsm, code):
+def embedded_code(*codes):
+    raise NotImplementedError("Only the intrinsic function 'intrinsic_embedded_code' is supported.")
+
+
+def intrinsic_embedded_numeric(fsm, code):
+    return vtypes.EmbeddedNumeric(code)
+
+
+def embedded_numeric(code):
     return vtypes.EmbeddedNumeric(code)
 
 
 # parallel subst
-def set_parallel(fsm):
+def intrinsic_set_parallel(fsm):
     fsm.parallel = True
 
 
-def unset_parallel(fsm):
+def set_parallel():
+    raise NotImplementedError("Only the intrinsic function 'intrinsic_set_parallel' is supported.")
+
+
+def intrinsic_unset_parallel(fsm):
     fsm.parallel = False
     fsm.goto_next()
+
+
+def unset_parallel():
+    raise NotImplementedError("Only the intrinsic function 'intrinsic_unset_parallel' is supported.")
 
 
 def Lock(m, name, clk, rst, width=32):
@@ -104,8 +156,11 @@ def Lock(m, name, clk, rst, width=32):
 
 
 class Mutex(object):
-    __intrinsics__ = ('lock', 'try_lock', 'unlock',
-                      'acquire', 'release')
+    __intrinsics__ = {'lock': '_intrinsic_lock',
+                      'try_lock': '_intrinsic_try_lock',
+                      'unlock': '_intrinsic_unlock',
+                      'acquire': '_intrinsic_acquire',
+                      'release': '_intrinsic_release'}
 
     def __init__(self, m, name, clk, rst, width=32):
 
@@ -125,7 +180,7 @@ class Mutex(object):
         self.id_map = OrderedDict()
         self.id_map_count = 0
 
-    def lock(self, fsm):
+    def _intrinsic_lock(self, fsm):
         name = fsm.name
         new_lock_id = self._get_id(name)
 
@@ -153,7 +208,10 @@ class Mutex(object):
 
         return 1
 
-    def try_lock(self, fsm):
+    def lock(self):
+        raise NotImplementedError()
+
+    def _intrinsic_try_lock(self, fsm):
         name = fsm.name
         new_lock_id = self._get_id(name)
 
@@ -183,7 +241,10 @@ class Mutex(object):
 
         return result
 
-    def unlock(self, fsm):
+    def try_lock(self):
+        raise NotImplementedError()
+
+    def _intrinsic_unlock(self, fsm):
         name = fsm.name
         new_lock_id = self._get_id(name)
 
@@ -200,6 +261,9 @@ class Mutex(object):
 
         return 0
 
+    def unlock(self):
+        raise NotImplementedError()
+
     def _get_id(self, name):
         if name not in self.id_map:
             self.id_map[name] = self.id_map_count
@@ -207,46 +271,63 @@ class Mutex(object):
 
         return self.id_map[name]
 
-    def acquire(self, fsm, blocking=True):
+    def _intrinsic_acquire(self, fsm, blocking=True):
         """ alias of lock() """
 
         if not isinstance(blocking, (bool, int)):
             raise TypeError('blocking argument must be bool')
 
         if blocking:
-            return self.lock(fsm)
+            return self._intrinsic_lock(fsm)
 
-        return self.try_lock(fsm)
+        return self._intrinsic_try_lock(fsm)
 
-    def release(self, fsm):
+    def acquire(self):
+        raise NotImplementedError()
+
+    def _intrinsic_release(self, fsm):
         """ alias of unlock() """
 
-        return self.unlock(fsm)
+        return self._intrinsic_unlock(fsm)
+
+    def release(self):
+        raise NotImplementedError()
 
 
 class _MutexFunction(object):
-    __intrinsics__ = ('lock', 'try_lock', 'unlock')
+    __intrinsics__ = {'lock': '_intrinsic_lock',
+                      'try_lock': '_intrinsic_try_lock',
+                      'unlock': '_intrinsic_unlock'}
 
     def _check_mutex(self, fsm):
         if self.mutex is None:
             self.mutex = Mutex(self.m, '_'.join(
                 ['', self.name, 'mutex']), self.clk, self.rst)
 
-    def lock(self, fsm):
+    def _intrinsic_lock(self, fsm):
         self._check_mutex(fsm)
-        return self.mutex.lock(fsm)
+        return self.mutex._intrinsic_lock(fsm)
 
-    def try_lock(self, fsm):
-        self._check_mutex(fsm)
-        return self.mutex.try_lock(fsm)
+    def lock(self):
+        raise NotImplementedError()
 
-    def unlock(self, fsm):
+    def _intrinsic_try_lock(self, fsm):
         self._check_mutex(fsm)
-        return self.mutex.unlock(fsm)
+        return self.mutex._intrinsic_try_lock(fsm)
+
+    def try_lock(self):
+        raise NotImplementedError()
+
+    def _intrinsic_unlock(self, fsm):
+        self._check_mutex(fsm)
+        return self.mutex._intrinsic_unlock(fsm)
+
+    def unlock(self):
+        raise NotImplementedError()
 
 
 class Barrier(object):
-    __intrinsics__ = ('wait', )
+    __intrinsics__ = {'wait': '_intrinsic_wait'}
 
     def __init__(self, m, name, clk, rst, numparties):
 
@@ -275,9 +356,9 @@ class Barrier(object):
             self.done(1)
         )
 
-    def wait(self, fsm):
+    def _intrinsic_wait(self, fsm):
 
-        self.mutex.lock(fsm)
+        self.mutex._intrinsic_lock(fsm)
 
         state_cond = fsm.state == fsm.current
         self.seq.If(state_cond)(
@@ -285,15 +366,19 @@ class Barrier(object):
         )
         fsm.goto_next()
 
-        self.mutex.unlock(fsm)
+        self.mutex._intrinsic_unlock(fsm)
 
         fsm.If(self.done).goto_next()
 
         return 0
 
+    def wait(self):
+        raise NotImplementedError()
+
 
 class Shared(_MutexFunction):
-    __intrinsics__ = ('read', 'write') + _MutexFunction.__intrinsics__
+    __intrinsics__ = {'read': '_intrinsic_read',
+                      'write': '_intrinsic_write'} | _MutexFunction.__intrinsics__
 
     def __init__(self, value):
         self._value = value
@@ -304,10 +389,13 @@ class Shared(_MutexFunction):
     def value(self):
         return self._value
 
-    def read(self, fsm):
+    def _intrinsic_read(self, fsm):
         return self._value
 
-    def write(self, fsm, value, *part):
+    def read(self):
+        raise NotImplementedError()
+
+    def _intrinsic_write(self, fsm, value, *part):
         if self.seq is None:
             m = fsm.m
             clk = fsm.clk
@@ -337,6 +425,9 @@ class Shared(_MutexFunction):
 
         fsm.goto_next()
         return 0
+
+    def write(self, value, *part):
+        raise NotImplementedError()
 
     def _check_mutex(self, fsm):
         if self.mutex is None:

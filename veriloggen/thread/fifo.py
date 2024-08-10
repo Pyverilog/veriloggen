@@ -14,9 +14,15 @@ from .ttypes import _MutexFunction
 
 
 class FIFO(_MutexFunction):
-    __intrinsics__ = ('enq', 'deq', 'try_enq', 'try_deq',
-                      'is_empty', 'is_almost_empty',
-                      'is_full', 'is_almost_full') + _MutexFunction.__intrinsics__
+    __intrinsics__ = {'enq': '_intrinsic_enq',
+                      'deq': '_intrinsic_deq',
+                      'try_enq': '_intrinsic_try_enq',
+                      'try_deq': '_intrinsic_try_deq',
+                      'is_almost_empty': '_intrinsic_is_almost_empty',
+                      'is_empty': '_intrinsic_is_empty',
+                      'is_almost_full': '_intrinsic_is_almost_full',
+                      'is_full': '_intrinsic_is_full',
+                      } | _MutexFunction.__intrinsics__
 
     def __init__(self, m, name, clk, rst,
                  datawidth=32, addrwidth=4, sync=True,
@@ -94,6 +100,13 @@ class FIFO(_MutexFunction):
         )
 
         self.mutex = None
+
+        # for execution as SW
+        self.array = []
+        if isinstance(self._max_size, int):
+            self.max_array_size = self._max_size
+        else:
+            self.max_array_size = 0
 
     def _id(self):
         return id(self)
@@ -198,7 +211,7 @@ class FIFO(_MutexFunction):
             return True
         return (self._count + num < self._max_size)
 
-    def enq(self, fsm, wdata):
+    def _intrinsic_enq(self, fsm, wdata):
         cond = fsm.state == fsm.current
 
         ack, ready = self.enq_rtl(wdata, cond=cond)
@@ -206,7 +219,13 @@ class FIFO(_MutexFunction):
 
         return 0
 
-    def deq(self, fsm):
+    def enq(self, wdata):
+        while self.max_array_size > 0 and len(self.array) >= self.max_array_size:
+            """ wait """
+            pass
+        self.array.append(wdata)
+
+    def _intrinsic_deq(self, fsm):
         cond = fsm.state == fsm.current
 
         rdata, rvalid, rready = self.deq_rtl(cond=cond)
@@ -223,7 +242,13 @@ class FIFO(_MutexFunction):
 
         return rdata_reg
 
-    def try_enq(self, fsm, wdata):
+    def deq(self):
+        while not self.array:
+            """ wait """
+            pass
+        return self.array.pop(0)
+
+    def _intrinsic_try_enq(self, fsm, wdata):
         cond = fsm.state == fsm.current
 
         ack, ready = self.enq_rtl(wdata, cond=cond)
@@ -237,7 +262,13 @@ class FIFO(_MutexFunction):
 
         return ack_reg
 
-    def try_deq(self, fsm):
+    def try_enq(self, wdata):
+        if self.max_array_size > 0 and len(self.array) >= self.max_array_size:
+            return False
+        self.array.append(wdata)
+        return True
+
+    def _intrinsic_try_deq(self, fsm):
         cond = fsm.state == fsm.current
 
         rdata, rvalid, rready = self.deq_rtl(cond=cond)
@@ -256,21 +287,42 @@ class FIFO(_MutexFunction):
 
         return rdata_reg, rvalid_reg
 
-    def is_almost_empty(self, fsm):
+    def try_deq(self):
+        if not self.array:
+            return 0, False
+        return self.array.pop(0), True
+
+    def _intrinsic_is_almost_empty(self, fsm):
         fsm.goto_next()
         return self.almost_empty
 
-    def is_empty(self, fsm):
+    def is_almost_empty(self):
+        return len(self.array) <= 1
+
+    def _intrinsic_is_empty(self, fsm):
         fsm.goto_next()
         return self.empty
 
-    def is_almost_full(self, fsm):
+    def is_empty(self, fsm):
+        return len(self.array) == 0
+
+    def _intrinsic_is_almost_full(self, fsm):
         fsm.goto_next()
         return self.almost_full
 
-    def is_full(self, fsm):
+    def is_almost_full(self, fsm):
+        if self.max_array_size == 0:
+            return False
+        return len(self.array) >= self.max_array_size - 2
+
+    def _intrinsic_is_full(self, fsm):
         fsm.goto_next()
         return self.full
+
+    def is_full(self, fsm):
+        if self.max_array_size == 0:
+            return False
+        return len(self.array) >= self.max_array_size - 1
 
 
 class FixedFIFO(FIFO):
@@ -289,31 +341,31 @@ class FixedFIFO(FIFO):
 
         self.point = point
 
-    def enq(self, fsm, wdata, raw=False):
+    def _intrinsic_enq(self, fsm, wdata, raw=False):
         if raw:
             fixed_wdata = wdata
         else:
             fixed_wdata = fxd.write_adjust(wdata, self.point)
 
-        return FIFO.enq(self, fsm, fixed_wdata)
+        return FIFO._intrinsic_enq(self, fsm, fixed_wdata)
 
-    def deq(self, fsm, raw=False):
-        raw_value = FIFO.deq(self, fsm)
+    def _intrinsic_deq(self, fsm, raw=False):
+        raw_value = FIFO._intrinsic_deq(self, fsm)
         if raw:
             return raw_value
 
         return fxd.reinterpret_cast_to_fixed(raw_value, self.point)
 
-    def try_enq(self, fsm, wdata, raw=False):
+    def _intrinsic_try_enq(self, fsm, wdata, raw=False):
         if raw:
             fixed_wdata = wdata
         else:
             fixed_wdata = fxd.write_adjust(wdata, self.point)
 
-        return FIFO.try_enq(self, fsm, fixed_wdata)
+        return FIFO._intrinsic_try_enq(self, fsm, fixed_wdata)
 
-    def try_deq(self, fsm, raw=False):
-        raw_data, raw_valid = FIFO.try_deq(self, fsm)
+    def _intrinsic_try_deq(self, fsm, raw=False):
+        raw_data, raw_valid = FIFO._intrinsic_try_deq(self, fsm)
         if raw:
             return raw_data, raw_valid
         return fxd.reinterpret_cast_to_fixed(raw_data, self.point), raw_valid

@@ -42,8 +42,12 @@ class AXISLite(axi.AxiLiteSlave, _MutexFunction):
 
 
 class AXISRegister(AXIS):
-    __intrinsics__ = ('read', 'write', 'write_flag', 'wait',
-                      'wait_flag') + _MutexFunction.__intrinsics__
+    __intrinsics__ = {'read': 'read',
+                      'write': 'write',
+                      'write_flag': 'write_flag',
+                      'wait': 'wait',
+                      'wait_flag': 'wait_flag',
+                      } | _MutexFunction.__intrinsics__
 
     def __init__(self, m, name, clk, rst, datawidth=32, addrwidth=32,
                  waddr_id_width=0, wdata_id_width=0, wresp_id_width=0,
@@ -242,8 +246,12 @@ class AXISRegister(AXIS):
 
 
 class AXISLiteRegister(AXISLite):
-    __intrinsics__ = ('read', 'write', 'write_flag', 'wait',
-                      'wait_flag') + _MutexFunction.__intrinsics__
+    __intrinsics__ = {'read': 'read',
+                      'write': 'write',
+                      'write_flag': 'write_flag',
+                      'wait': 'wait',
+                      'wait_flag': 'wait_flag',
+                      } | _MutexFunction.__intrinsics__
 
     def __init__(self, m, name, clk, rst, datawidth=32, addrwidth=32,
                  noio=False, length=4, fsm_as_module=False):

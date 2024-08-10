@@ -15,6 +15,6 @@ from .util import *
 
 from . import fixed
 
-__intrinsics__ = []
-__intrinsics__.extend(__ttypes_intrinsics__)
-__intrinsics__.extend(__util_intrinsics__)
+__intrinsics__ = {}
+__intrinsics__.update(__ttypes_intrinsics__)
+__intrinsics__.update(__util_intrinsics__)

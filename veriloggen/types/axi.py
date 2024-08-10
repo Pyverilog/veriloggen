@@ -2906,8 +2906,10 @@ class AxiStreamOut(object):
 
 
 class AxiMemoryModel(AxiSlave):
-    __intrinsics__ = ('read', 'write',
-                      'read_word', 'write_word')
+    __intrinsics__ = {'read': '_intrinsic_read',
+                      'write': '_intrinsic_write',
+                      'read_word': '_intrinsic_read_word',
+                      'write_word': '_intrinsic_write_word'}
 
     def __init__(self, m, name, clk, rst, datawidth=32, addrwidth=32,
                  mem_datawidth=32, mem_addrwidth=20,
@@ -3265,7 +3267,7 @@ class AxiMemoryModel(AxiSlave):
         self.rdata_fsm.If(self.rdata.rvalid, self.rdata.rready,
                           read_count == 0).goto_init()
 
-    def read(self, fsm, addr):
+    def _intrinsic_read(self, fsm, addr):
         """ intrinsic for thread """
 
         cond = fsm.state == fsm.current
@@ -3280,7 +3282,10 @@ class AxiMemoryModel(AxiSlave):
 
         return rdata
 
-    def write(self, fsm, addr, wdata):
+    def read(self, addr):
+        raise NotImplementedError("only intrinsic method is implemented.")
+
+    def _intrinsic_write(self, fsm, addr, wdata):
         """ intrinsic for thread """
 
         cond = fsm.state == fsm.current
@@ -3298,7 +3303,10 @@ class AxiMemoryModel(AxiSlave):
 
         return 0
 
-    def read_word(self, fsm, word_index, byte_offset, bits=8):
+    def write(self, addr, wdata):
+        raise NotImplementedError("only intrinsic method is implemented.")
+
+    def _intrinsic_read_word(self, fsm, word_index, byte_offset, bits=8):
         """ intrinsic method word-indexed read """
 
         cond = fsm.state == fsm.current
@@ -3318,7 +3326,10 @@ class AxiMemoryModel(AxiSlave):
 
         return rdata
 
-    def write_word(self, fsm, word_index, byte_offset, wdata, bits=8):
+    def read_word(self, word_index, byte_offset, bits=8):
+        raise NotImplementedError("only intrinsic method is implemented.")
+
+    def _intrinsic_write_word(self, fsm, word_index, byte_offset, wdata, bits=8):
         """ intrinsic method word-indexed write """
 
         cond = fsm.state == fsm.current
@@ -3353,6 +3364,9 @@ class AxiMemoryModel(AxiSlave):
         fsm.goto_next()
 
         return 0
+
+    def write_word(self, word_index, byte_offset, wdata, bits=8):
+        raise NotImplementedError("only intrinsic method is implemented.")
 
     def pack_write_data(self, wdata, wstrb, wlast):
         _wdata = self.m.TmpWire(self.datawidth, prefix='pack_write_data_wdata')
@@ -3486,8 +3500,10 @@ class AxiMemoryModel(AxiSlave):
 
 
 class AxiMultiportMemoryModel(AxiMemoryModel):
-    __intrinsics__ = ('read', 'write',
-                      'read_word', 'write_word')
+    __intrinsics__ = {'read': '_intrinsic_read',
+                      'write': '_intrinsic_write',
+                      'read_word': '_intrinsic_read_word',
+                      'write_word': '_intrinsic_write_word'}
 
     def __init__(self, m, name, clk, rst, datawidth=32, addrwidth=32, numports=2,
                  mem_datawidth=32, mem_addrwidth=20,
@@ -3862,8 +3878,10 @@ class AxiMultiportMemoryModel(AxiMemoryModel):
 
 
 class AxiSerialMemoryModel(AxiSlave):
-    __intrinsics__ = ('read', 'write',
-                      'read_word', 'write_word')
+    __intrinsics__ = {'read': '_intrinsic_read',
+                      'write': '_intrinsic_write',
+                      'read_word': '_intrinsic_read_word',
+                      'write_word': '_intrinsic_write_word'}
 
     def __init__(self, m, name, clk, rst, datawidth=32, addrwidth=32,
                  mem_datawidth=32, mem_addrwidth=20,
@@ -4144,7 +4162,7 @@ class AxiSerialMemoryModel(AxiSlave):
         self.fsm.If(self.rdata.rvalid, self.rdata.rready,
                     read_count == 0).goto_init()
 
-    def read(self, fsm, addr):
+    def _intrinsic_read(self, fsm, addr):
         """ intrinsic for thread """
 
         cond = fsm.state == fsm.current
@@ -4159,7 +4177,10 @@ class AxiSerialMemoryModel(AxiSlave):
 
         return rdata
 
-    def write(self, fsm, addr, wdata):
+    def read(self, addr):
+        raise NotImplementedError("only intrinsic method is implemented.")
+
+    def _intrinsic_write(self, fsm, addr, wdata):
         """ intrinsic for thread """
 
         cond = fsm.state == fsm.current
@@ -4177,7 +4198,10 @@ class AxiSerialMemoryModel(AxiSlave):
 
         return 0
 
-    def read_word(self, fsm, word_index, byte_offset, bits=8):
+    def write(self, addr, wdata):
+        raise NotImplementedError("only intrinsic method is implemented.")
+
+    def _intrinsic_read_word(self, fsm, word_index, byte_offset, bits=8):
         """ intrinsic method word-indexed read """
 
         cond = fsm.state == fsm.current
@@ -4197,7 +4221,10 @@ class AxiSerialMemoryModel(AxiSlave):
 
         return rdata
 
-    def write_word(self, fsm, word_index, byte_offset, wdata, bits=8):
+    def read_word(self, word_index, byte_offset, bits=8):
+        raise NotImplementedError("only intrinsic method is implemented.")
+
+    def _intrinsic_write_word(self, fsm, word_index, byte_offset, wdata, bits=8):
         """ intrinsic method word-indexed write """
 
         cond = fsm.state == fsm.current
@@ -4233,10 +4260,15 @@ class AxiSerialMemoryModel(AxiSlave):
 
         return 0
 
+    def write_word(self, word_index, byte_offset, wdata, bits=8):
+        raise NotImplementedError("only intrinsic method is implemented.")
+
 
 class AxiSerialMultiportMemoryModel(AxiSerialMemoryModel):
-    __intrinsics__ = ('read', 'write',
-                      'read_word', 'write_word')
+    __intrinsics__ = {'read': '_intrinsic_read',
+                      'write': '_intrinsic_write',
+                      'read_word': '_intrinsic_read_word',
+                      'write_word': '_intrinsic_write_word'}
 
     def __init__(self, m, name, clk, rst, datawidth=32, addrwidth=32, numports=2,
                  mem_datawidth=32, mem_addrwidth=20,

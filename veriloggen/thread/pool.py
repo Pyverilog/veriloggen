@@ -20,7 +20,11 @@ def to_thread_pool(*threads):
 
 
 class ThreadPool(vtypes.VeriloggenNode):
-    __intrinsics__ = ('run', 'join', 'done', 'reset', 'ret')
+    __intrinsics__ = {'run': 'run',
+                      'join': 'join',
+                      'done': 'done',
+                      'reset': 'reset',
+                      'ret': 'ret'}
 
     def __init__(self, m=None, name=None, clk=None, rst=None,
                  targ=None, numthreads=None, datawidth=32,

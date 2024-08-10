@@ -18,20 +18,34 @@ from .fifo import FIFO
 class AXIM(axi.AxiMaster, _MutexFunction):
     """ AXI Master Interface with DMA controller """
 
-    __intrinsics__ = ('read', 'write', 'write_fence',
-                      'dma_read', 'dma_read_async',
-                      'dma_write', 'dma_write_async',
-                      'dma_read_bank', 'dma_read_bank_async',
-                      'dma_write_bank', 'dma_write_bank_async',
-                      'dma_read_block', 'dma_read_block_async',
-                      'dma_write_block', 'dma_write_block_async',
-                      'dma_read_packed', 'dma_read_packed_async',
-                      'dma_write_packed', 'dma_write_packed_async',
-                      'dma_read_bcast', 'dma_read_bcast_async',
-                      'dma_wait_read', 'dma_wait_write',
-                      'dma_wait_write_idle', 'dma_wait_write_response',
-                      'dma_wait',
-                      'set_global_base_addr',) + _MutexFunction.__intrinsics__
+    __intrinsics__ = {'read': 'read',
+                      'write': 'write',
+                      'write_fence': 'write_fence',
+                      'dma_read': 'dma_read',
+                      'dma_read_async': 'dma_read_async',
+                      'dma_write': 'dma_write',
+                      'dma_write_async': 'dma_write_async',
+                      'dma_read_bank': 'dma_read_bank',
+                      'dma_read_bank_async': 'dma_read_bank_async',
+                      'dma_write_bank': 'dma_write_bank',
+                      'dma_write_bank_async': 'dma_write_bank_async',
+                      'dma_read_block': 'dma_read_block',
+                      'dma_read_block_async': 'dma_read_block_async',
+                      'dma_write_block': 'dma_write_block',
+                      'dma_write_block_async': 'dma_write_block_async',
+                      'dma_read_packed': 'dma_read_packed',
+                      'dma_read_packed_async': 'dma_read_packed_async',
+                      'dma_write_packed': 'dma_write_packed',
+                      'dma_write_packed_async': 'dma_write_packed_async',
+                      'dma_read_bcast': 'dma_read_bcast',
+                      'dma_read_bcast_async': 'dma_read_bcast_async',
+                      'dma_wait_read': 'dma_wait_read',
+                      'dma_wait_write': 'dma_wait_write',
+                      'dma_wait_write_idle': 'dma_wait_write_idle',
+                      'dma_wait_write_response': 'dma_wait_write_response',
+                      'dma_wait': 'dma_wait',
+                      'set_global_base_addr': 'set_global_base_addr',
+                      } | _MutexFunction.__intrinsics__
 
     def __init__(self, m, name, clk, rst, datawidth=32, addrwidth=32,
                  waddr_id_width=0, wdata_id_width=0, wresp_id_width=0,
@@ -1709,7 +1723,8 @@ class AXIM(axi.AxiMaster, _MutexFunction):
 
 
 class AXIMVerify(AXIM):
-    __intrinsics__ = ('read_delayed', 'write_delayed') + AXIM.__intrinsics__
+    __intrinsics__ = {'read_delayed': 'read_delayed',
+                      'write_delayed': 'write_delayed'} | AXIM.__intrinsics__
 
     def read_delayed(self, fsm, global_addr, delay):
         if self.use_global_base_addr:
@@ -1803,8 +1818,11 @@ class AXIMVerify(AXIM):
 class AXIMLite(axi.AxiLiteMaster, _MutexFunction):
     """ AXI-Lite Master Interface """
 
-    __intrinsics__ = ('read', 'write', 'write_fence',
-                      'set_global_base_addr',) + _MutexFunction.__intrinsics__
+    __intrinsics__ = {'read': 'read',
+                      'write': 'write',
+                      'write_fence': 'write_fence',
+                      'set_global_base_addr': 'set_global_base_addr'
+                      } | _MutexFunction.__intrinsics__
 
     def __init__(self, m, name, clk, rst, datawidth=32, addrwidth=32,
                  waddr_cache_mode=axi.AxCACHE_NONCOHERENT, raddr_cache_mode=axi.AxCACHE_NONCOHERENT,
@@ -1897,7 +1915,8 @@ class AXIMLite(axi.AxiLiteMaster, _MutexFunction):
 
 
 class AXIMLiteVerify(AXIMLite):
-    __intrinsics__ = ('read_delayed', 'write_delayed') + AXIMLite.__intrinsics__
+    __intrinsics__ = {'read_delayed': 'read_delayed',
+                      'write_delayed': 'write_delayed'} | AXIMLite.__intrinsics__
 
     def read_delayed(self, fsm, global_addr, delay):
         if self.use_global_base_addr:
